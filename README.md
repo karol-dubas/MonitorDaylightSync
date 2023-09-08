@@ -5,5 +5,11 @@
 
 # Install
 - how to build & publish to a folder (or automate it)
-  - `sc create YourServiceName binPath= "C:\Path\To\YourApp\YourApp.exe"`
-  - `sc start YourServiceName`
+  - publish to folder (release, portable)
+  - run PowerShell as admin and use service control manager tool:
+    - `sc create YourServiceName binPath= "C:\Path\To\YourApp\YourApp.exe" start= auto`
+    - `sc start YourServiceName`
+
+# Uninstall
+- stop service
+- `sc delete YourServiceName` (close Services window if opened)
