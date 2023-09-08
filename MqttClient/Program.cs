@@ -1,12 +1,20 @@
 using MqttClient;
+using Serilog;
+using Serilog.Debugging;
 
-var host = Host.CreateDefaultBuilder(args)
-    .ConfigureServices(services =>
-    {
-        services.AddHostedService<Worker>();
-    })
-    .Build();
+var host = Host.CreateDefaultBuilder(args);
 
-host.Run();
+// Write Serilog error config to console
+SelfLog.Enable(Console.Error);
 
-// TODO: logs
+host.UseSerilog((context, config) => config
+   .ReadFrom.Configuration(context.Configuration));
+
+host.ConfigureServices(services =>
+{
+   services.AddHostedService<Worker>(); 
+});
+
+host.Build().Run();
+
+// TODO: update log file path to relative
