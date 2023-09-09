@@ -5,11 +5,11 @@
 
 # Install
 - how to build & publish to a folder (or automate it)
-  - publish to folder (release, portable)
+  - publish to folder with publish profile
   - run PowerShell as admin and use service control manager tool:
-    - `sc create YourServiceName binPath= "C:\Path\To\YourApp\YourApp.exe" start= auto`
-    - `sc start YourServiceName`
+    - `sc.exe create "MQTT Client" binPath= "...\MqttClient\MqttClient\bin\Release\net7.0\win-x64\MqttClient.exe" start= auto`
+    - `sc.exe start "MQTT Client"`
 
 # Uninstall
-- stop service
-- `sc delete YourServiceName` (close Services window if opened)
+- stop service `sc.exe stop "MQTT Client"`
+- delete service `sc.exe delete "MQTT Client"` (close Services window if opened)~~~~

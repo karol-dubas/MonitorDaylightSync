@@ -12,7 +12,8 @@ host.UseSerilog((context, config) => config
 
 host.ConfigureServices(services =>
 {
-   services.AddHostedService<Worker>(); 
+   services.AddHostedService<Worker>();
+   services.AddWindowsService(options => options.ServiceName = nameof(MqttClient));
 });
 
 host.Build().Run();

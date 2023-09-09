@@ -1,0 +1,6 @@
+﻿<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Publish MqttClient to folder" type="DotNetFolderPublish" factoryName="Publish to folder">
+    <riderPublish configuration="Release" platform="Any CPU" produce_single_file="true" ready_to_run="true" runtime="win-x64" self_contained="true" target_folder="$PROJECT_DIR$/MqttClient/bin/Release/net7.0/win-x64/publish" target_framework="net7.0" uuid_high="-7002283028049801917" uuid_low="-8181316501591529584" />
+    <method v="2" />
+  </configuration>
+</component>
