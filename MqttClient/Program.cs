@@ -2,20 +2,41 @@ using MqttClient;
 using Serilog;
 using Serilog.Debugging;
 
-var host = Host.CreateDefaultBuilder(args);
+var hostBuilder = Host.CreateDefaultBuilder(args);
 
 // Write Serilog error config to console
 SelfLog.Enable(Console.Error);
 
-host.UseSerilog((context, config) => config
+hostBuilder.UseSerilog((context, config) => config
    .ReadFrom.Configuration(context.Configuration));
 
-host.ConfigureServices(services =>
+hostBuilder.ConfigureServices((context, services) =>
 {
+   var mqttConfig = new MqttClientConfiguration();
+   context.Configuration.GetSection("MqttClient").Bind(mqttConfig);
+   
+   services.AddSingleton(mqttConfig);
    services.AddHostedService<Worker>();
    services.AddWindowsService(options => options.ServiceName = nameof(MqttClient));
 });
 
-host.Build().Run();
+var app = hostBuilder.Build();
+
+var logger = app.Services.GetService<ILogger<Program>>();
+
+try
+{
+   logger?.LogInformation("Starting app...");
+   app.Run();
+}
+catch (Exception e)
+{
+   logger?.LogCritical(e, "Host terminated unexpectedly");
+}
+finally
+{
+   logger?.LogInformation("Stopping app...");
+   Log.CloseAndFlush();
+}
 
 // TODO: update log file path to relative

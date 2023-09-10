@@ -12,4 +12,4 @@
 
 # Uninstall
 - stop service `sc.exe stop "MQTT Client"`
-- delete service `sc.exe delete "MQTT Client"` (close Services window if opened)~~~~
+- delete service `sc.exe delete "MQTT Client"` (close Services window if opened)
