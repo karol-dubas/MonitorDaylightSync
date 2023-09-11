@@ -7,4 +7,5 @@ public class MqttClientConfiguration
     public string? Address { get; set; }
     public int Port { get; set; }
     public string? Topic { get; set; }
+    public short ReconnectDelaySeconds { get; set; }
 }

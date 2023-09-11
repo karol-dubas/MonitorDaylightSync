@@ -1,13 +1,14 @@
 using MQTTnet;
 using MQTTnet.Client;
+using SpanJson;
 
 namespace MqttClient;
 
-public class Worker : BackgroundService
+public class Worker : IHostedService
 {
     private readonly ILogger<Worker> _logger;
     private readonly MqttClientConfiguration _mqttConfig;
-    private IMqttClient? _mqttClient;
+    private IMqttClient _mqttClient;
 
     public Worker(
         ILogger<Worker> logger,
@@ -17,60 +18,31 @@ public class Worker : BackgroundService
         _mqttConfig = mqttConfig;
     }
 
-    public override async Task StartAsync(CancellationToken ct)
+    public async Task StartAsync(CancellationToken ct)
     {
         _logger.LogInformation("{Name} started", nameof(Worker));
 
         var mqttFactory = new MqttFactory();
         _mqttClient = mqttFactory.CreateMqttClient();
+        
         var mqttClientOptions = new MqttClientOptionsBuilder()
             .WithTcpServer(_mqttConfig.Address, _mqttConfig.Port)
             .WithCredentials(_mqttConfig.Username, _mqttConfig.Password)
             .Build();
 
-        HandleReceivedMessage();
-        await ConnectClient(mqttClientOptions, ct);
+        AddMessageHandler();
+        await Connect(mqttClientOptions, ct);
         StartReconnectLoop(mqttClientOptions, ct);
         await SubscribeToTopic(mqttFactory, ct);
-
-        await base.StartAsync(ct);
     }
 
-    // TODO: refactor this service
-    protected override async Task ExecuteAsync(CancellationToken ct)
-    {
-        try
-        {
-            while (!ct.IsCancellationRequested)
-                await Task.Delay(1000, ct);
-        }
-        catch (TaskCanceledException)
-        {
-            _logger.LogInformation("{Name} cancelled", nameof(Worker));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "{Message}", ex.Message);
-
-            // Terminates this process and returns an exit code to the operating system.
-            // This is required to avoid the 'BackgroundServiceExceptionBehavior', which
-            // performs one of two scenarios:
-            // 1. When set to "Ignore": will do nothing at all, errors cause zombie services.
-            // 2. When set to "StopHost": will cleanly stop the host, and log errors.
-            //
-            // In order for the Windows Service Management system to leverage configured
-            // recovery options, we need to terminate the process with a non-zero exit code.
-            Environment.Exit(1);
-        }
-    }
-
-    public override async Task StopAsync(CancellationToken ct)
+    public async Task StopAsync(CancellationToken ct)
     {
         try
         {
             _logger.LogInformation("Disconnecting MQTT client...");
             await _mqttClient.DisconnectAsync(cancellationToken: ct);
-            _mqttClient!.Dispose();
+            _mqttClient.Dispose();
         }
         catch (TaskCanceledException)
         {
@@ -82,12 +54,32 @@ public class Worker : BackgroundService
         }
 
         _logger.LogInformation("{Name} stopped", nameof(Worker));
-        await base.StopAsync(ct);
+    }
+    
+    private void AddMessageHandler()
+    {
+        _mqttClient.ApplicationMessageReceivedAsync += e =>
+        {
+            try
+            {
+                string json = e.ApplicationMessage.ConvertPayloadToString();
+                string[] commands = JsonSerializer.Generic.Utf16.Deserialize<string[]>(json);
+            
+                _logger.LogDebug("Received message: {Message}", string.Join(", ", commands));
+
+                // TODO: run all commands
+                // TODO: use ControlMyMonitor (path env var?)
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while processing message");
+            }
+
+            return Task.CompletedTask;
+        };
     }
 
-    private void StartReconnectLoop(
-        MqttClientOptions mqttClientOptions,
-        CancellationToken ct)
+    private void StartReconnectLoop(MqttClientOptions mqttClientOptions, CancellationToken ct)
     {
         try
         {
@@ -98,25 +90,21 @@ public class Worker : BackgroundService
                     {
                         if (await _mqttClient.TryPingAsync(ct))
                         {
-                            _logger.LogDebug("MQTT client is connected");
+                            _logger.LogDebug("MQTT client keeps the connection");
                         }
                         else
                         {
-                            // TODO: is TryPingAsync connecting?
-                            // TODO: connect warning -> info
-
-                            _logger.LogWarning("MQTT client not connected, connecting...");
-                            var response = await _mqttClient!.ConnectAsync(mqttClientOptions, ct);
-                            _logger.LogDebug("Connected: {@Response}", response);
+                            _logger.LogWarning("MQTT client not connected, trying to reconnect...");
+                            await Connect(mqttClientOptions, ct);
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Can't connect MQTT client");
+                        _logger.LogError(ex, "Error while connecting");
                     }
                     finally
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(10), ct);
+                        await Task.Delay(TimeSpan.FromSeconds(_mqttConfig.ReconnectDelaySeconds), ct);
                     }
             }, ct);
         }
@@ -125,7 +113,29 @@ public class Worker : BackgroundService
             _logger.LogInformation("{Name} cancelled", nameof(Worker));
         }
     }
-    
+
+    private async Task Connect(MqttClientOptions mqttClientOptions, CancellationToken ct)
+    {
+        try
+        {
+            var response = await _mqttClient.ConnectAsync(mqttClientOptions, ct);
+
+            // TODO: need to resubscribe on reconnection (or just subscribe after connect)
+            if (response.ResultCode == MqttClientConnectResultCode.Success)
+                _logger.LogInformation("Connected: {@Response}", response);
+            else
+                _logger.LogWarning("Connection status: {Status}", response.ResultCode);
+        }
+        catch (TaskCanceledException)
+        {
+            _logger.LogInformation("{Name} cancelled", nameof(Worker));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while connecting");
+        }
+    }
+
     private async Task SubscribeToTopic(MqttFactory mqttFactory, CancellationToken ct)
     {
         try
@@ -134,32 +144,26 @@ public class Worker : BackgroundService
                 .WithTopicFilter(f => f.WithTopic(_mqttConfig.Topic))
                 .Build();
 
-            var response = await _mqttClient!.SubscribeAsync(mqttSubscribeOptions, ct);
-            _logger.LogInformation("Connected to a topic '{Topic}' with response: {@Response}",
+            // BUG: fix no delay time
+            while (!_mqttClient.IsConnected)
+            {
+                _logger.LogWarning("MQTT Client not connected, retrying topic {Topic} subscribe in {Delay}s",
+                    _mqttConfig.Topic, _mqttConfig.ReconnectDelaySeconds);
+                
+                await Task.Delay(_mqttConfig.ReconnectDelaySeconds, ct);
+            }
+            
+            var response = await _mqttClient.SubscribeAsync(mqttSubscribeOptions, ct);
+            _logger.LogInformation("Connected to a topic {Topic} with response: {@Response}",
                 _mqttConfig.Topic, response);
         }
-        catch (Exception e)
+        catch (TaskCanceledException)
         {
-            // TODO: error handling
+            _logger.LogInformation("{Name} cancelled", nameof(Worker));
         }
-    }
-    
-    private async Task ConnectClient(MqttClientOptions mqttClientOptions, CancellationToken ct)
-    {
-        var response = await _mqttClient!.ConnectAsync(mqttClientOptions, ct);
-        _logger.LogDebug("Connected: {@Response}", response);
-    }
-
-    private void HandleReceivedMessage()
-    {
-        _mqttClient!.ApplicationMessageReceivedAsync += e =>
+        catch (Exception ex)
         {
-            // TODO: deserialize json
-            // TODO: run all commands
-            // TODO: use ControlMyMonitor (path env var?)
-
-            _logger.LogDebug("Received message: {@Message}", e);
-            return Task.CompletedTask;
-        };
+            _logger.LogError(ex, "MQTT client can't subscribe to a topic {Topic}", _mqttConfig.Topic);
+        }
     }
 }
