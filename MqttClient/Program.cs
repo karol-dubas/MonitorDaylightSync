@@ -37,6 +37,7 @@ finally
 {
    logger?.LogInformation("Stopping app...");
    Log.CloseAndFlush();
+   // TODO: Env.Exit?
 }
 
 // TODO: update log file path to relative

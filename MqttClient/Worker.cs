@@ -29,11 +29,14 @@ public class Worker : IHostedService
             .WithTcpServer(_mqttConfig.Address, _mqttConfig.Port)
             .WithCredentials(_mqttConfig.Username, _mqttConfig.Password)
             .Build();
+        
+        var mqttSubscribeOptions = mqttFactory.CreateSubscribeOptionsBuilder()
+            .WithTopicFilter(f => f.WithTopic(_mqttConfig.Topic))
+            .Build();
 
         AddMessageHandler();
-        await Connect(mqttClientOptions, ct);
-        StartReconnectLoop(mqttClientOptions, ct);
-        await SubscribeToTopic(mqttFactory, ct);
+        await Connect(mqttClientOptions, mqttSubscribeOptions, ct);
+        StartReconnectLoop(mqttClientOptions, mqttSubscribeOptions, ct);
     }
 
     public async Task StopAsync(CancellationToken ct)
@@ -79,7 +82,10 @@ public class Worker : IHostedService
         };
     }
 
-    private void StartReconnectLoop(MqttClientOptions mqttClientOptions, CancellationToken ct)
+    private void StartReconnectLoop(
+        MqttClientOptions mqttClientOptions,
+        MqttClientSubscribeOptions mqttClientSubscribeOptions, 
+        CancellationToken ct)
     {
         try
         {
@@ -95,7 +101,7 @@ public class Worker : IHostedService
                         else
                         {
                             _logger.LogWarning("MQTT client not connected, trying to reconnect...");
-                            await Connect(mqttClientOptions, ct);
+                            await Connect(mqttClientOptions, mqttClientSubscribeOptions, ct);
                         }
                     }
                     catch (Exception ex)
@@ -114,17 +120,20 @@ public class Worker : IHostedService
         }
     }
 
-    private async Task Connect(MqttClientOptions mqttClientOptions, CancellationToken ct)
+    private async Task Connect(
+        MqttClientOptions mqttClientOptions,
+        MqttClientSubscribeOptions mqttClientSubscribeOptions, 
+        CancellationToken ct)
     {
         try
         {
             var response = await _mqttClient.ConnectAsync(mqttClientOptions, ct);
 
-            // TODO: need to resubscribe on reconnection (or just subscribe after connect)
-            if (response.ResultCode == MqttClientConnectResultCode.Success)
-                _logger.LogInformation("Connected: {@Response}", response);
-            else
+            if (response.ResultCode != MqttClientConnectResultCode.Success)
                 _logger.LogWarning("Connection status: {Status}", response.ResultCode);
+            
+            _logger.LogInformation("Connected: {@Response}", response);
+            await SubscribeToTopic(mqttClientSubscribeOptions, ct);
         }
         catch (TaskCanceledException)
         {
@@ -136,24 +145,12 @@ public class Worker : IHostedService
         }
     }
 
-    private async Task SubscribeToTopic(MqttFactory mqttFactory, CancellationToken ct)
+    private async Task SubscribeToTopic(MqttClientSubscribeOptions mqttClientSubscribeOptions, CancellationToken ct)
     {
         try
         {
-            var mqttSubscribeOptions = mqttFactory.CreateSubscribeOptionsBuilder()
-                .WithTopicFilter(f => f.WithTopic(_mqttConfig.Topic))
-                .Build();
-
-            // BUG: fix no delay time
-            while (!_mqttClient.IsConnected)
-            {
-                _logger.LogWarning("MQTT Client not connected, retrying topic {Topic} subscribe in {Delay}s",
-                    _mqttConfig.Topic, _mqttConfig.ReconnectDelaySeconds);
-                
-                await Task.Delay(_mqttConfig.ReconnectDelaySeconds, ct);
-            }
+            var response = await _mqttClient.SubscribeAsync(mqttClientSubscribeOptions, ct);
             
-            var response = await _mqttClient.SubscribeAsync(mqttSubscribeOptions, ct);
             _logger.LogInformation("Connected to a topic {Topic} with response: {@Response}",
                 _mqttConfig.Topic, response);
         }
