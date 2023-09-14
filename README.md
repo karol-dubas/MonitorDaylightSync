@@ -4,6 +4,7 @@
 - configured to be created as windows service, can be configured for other platforms (Azure, Linux etc.)   
 
 # Install
+- add ControlMyMonitor.exe to PATH
 - how to build & publish to a folder (or automate it)
   - publish to folder with publish profile
   - run PowerShell as admin and use service control manager tool:
