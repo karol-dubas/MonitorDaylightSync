@@ -8,7 +8,7 @@ public class Worker : IHostedService
 {
     private readonly ILogger<Worker> _logger;
     private readonly MqttClientConfiguration _mqttConfig;
-    private IMqttClient _mqttClient;
+    private IMqttClient? _mqttClient;
 
     public Worker(
         ILogger<Worker> logger,
@@ -24,12 +24,12 @@ public class Worker : IHostedService
 
         var mqttFactory = new MqttFactory();
         _mqttClient = mqttFactory.CreateMqttClient();
-        
+
         var mqttClientOptions = new MqttClientOptionsBuilder()
             .WithTcpServer(_mqttConfig.Address, _mqttConfig.Port)
             .WithCredentials(_mqttConfig.Username, _mqttConfig.Password)
             .Build();
-        
+
         var mqttSubscribeOptions = mqttFactory.CreateSubscribeOptionsBuilder()
             .WithTopicFilter(f => f.WithTopic(_mqttConfig.Topic))
             .Build();
@@ -45,7 +45,7 @@ public class Worker : IHostedService
         {
             _logger.LogInformation("Disconnecting MQTT client...");
             await _mqttClient.DisconnectAsync(cancellationToken: ct);
-            _mqttClient.Dispose();
+            _mqttClient!.Dispose();
         }
         catch (TaskCanceledException)
         {
@@ -58,33 +58,41 @@ public class Worker : IHostedService
 
         _logger.LogInformation("{Name} stopped", nameof(Worker));
     }
-    
+
     private void AddMessageHandler()
     {
-        _mqttClient.ApplicationMessageReceivedAsync += e =>
+        _mqttClient!.ApplicationMessageReceivedAsync += async e =>
         {
             try
             {
                 string json = e.ApplicationMessage.ConvertPayloadToString();
-                string[] commands = JsonSerializer.Generic.Utf16.Deserialize<string[]>(json);
-            
-                _logger.LogDebug("Received message: {Message}", string.Join(", ", commands));
+                string[] rawCommands = JsonSerializer.Generic.Utf16.Deserialize<string[]>(json);
+                _logger.LogDebug("Received message: {Message}", string.Join(", ", rawCommands));
 
-                // TODO: run all commands
-                // TODO: use ControlMyMonitor (path env var?)
+                var commandTaskList = new List<Task>();
+
+                foreach (string rawCommand in rawCommands)
+                {
+                    commandTaskList.Add(Task.Run(() =>
+                    {
+                        _logger.LogDebug("Executing command {Command}", rawCommand);
+                        NativeMethods.LaunchProcess($"ControlMyMonitor {rawCommand}");
+                    }));
+                }
+
+                _logger.LogDebug("Running all commands...");
+                await Task.WhenAll(commandTaskList);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error while processing message");
             }
-
-            return Task.CompletedTask;
         };
     }
 
     private void StartReconnectLoop(
         MqttClientOptions mqttClientOptions,
-        MqttClientSubscribeOptions mqttClientSubscribeOptions, 
+        MqttClientSubscribeOptions mqttClientSubscribeOptions,
         CancellationToken ct)
     {
         try
@@ -122,16 +130,16 @@ public class Worker : IHostedService
 
     private async Task Connect(
         MqttClientOptions mqttClientOptions,
-        MqttClientSubscribeOptions mqttClientSubscribeOptions, 
+        MqttClientSubscribeOptions mqttClientSubscribeOptions,
         CancellationToken ct)
     {
         try
         {
-            var response = await _mqttClient.ConnectAsync(mqttClientOptions, ct);
+            var response = await _mqttClient!.ConnectAsync(mqttClientOptions, ct);
 
             if (response.ResultCode != MqttClientConnectResultCode.Success)
                 _logger.LogWarning("Connection status: {Status}", response.ResultCode);
-            
+
             _logger.LogInformation("Connected: {@Response}", response);
             await SubscribeToTopic(mqttClientSubscribeOptions, ct);
         }
@@ -149,8 +157,8 @@ public class Worker : IHostedService
     {
         try
         {
-            var response = await _mqttClient.SubscribeAsync(mqttClientSubscribeOptions, ct);
-            
+            var response = await _mqttClient!.SubscribeAsync(mqttClientSubscribeOptions, ct);
+
             _logger.LogInformation("Connected to a topic {Topic} with response: {@Response}",
                 _mqttConfig.Topic, response);
         }
