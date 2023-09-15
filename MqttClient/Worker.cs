@@ -37,6 +37,8 @@ public class Worker : IHostedService
         AddMessageHandler();
         await Connect(mqttClientOptions, mqttSubscribeOptions, ct);
         StartReconnectLoop(mqttClientOptions, mqttSubscribeOptions, ct);
+        
+        // TODO: set initial monitor params, based on time? 
     }
 
     public async Task StopAsync(CancellationToken ct)
@@ -61,32 +63,27 @@ public class Worker : IHostedService
 
     private void AddMessageHandler()
     {
-        _mqttClient!.ApplicationMessageReceivedAsync += async e =>
+        _mqttClient!.ApplicationMessageReceivedAsync += e =>
         {
             try
             {
+                // TODO: change json payload to % values, for all lights/screens same used
+                // brightness and color in payload
+                // contrast is calculated here
+                
                 string json = e.ApplicationMessage.ConvertPayloadToString();
-                string[] rawCommands = JsonSerializer.Generic.Utf16.Deserialize<string[]>(json);
-                _logger.LogDebug("Received message: {Message}", string.Join(", ", rawCommands));
+                string[] commands = JsonSerializer.Generic.Utf16.Deserialize<string[]>(json);
+                _logger.LogDebug("Received message: {Message}", string.Join(", ", commands));
 
-                var commandTaskList = new List<Task>();
-
-                foreach (string rawCommand in rawCommands)
-                {
-                    commandTaskList.Add(Task.Run(() =>
-                    {
-                        _logger.LogDebug("Executing command {Command}", rawCommand);
-                        NativeMethods.LaunchProcess($"ControlMyMonitor {rawCommand}");
-                    }));
-                }
-
-                _logger.LogDebug("Running all commands...");
-                await Task.WhenAll(commandTaskList);
+                _logger.LogDebug("Executing commands...");
+                NativeMethods.LaunchProcess($"ControlMyMonitor {string.Join(" ", commands)}");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error while processing message");
             }
+
+            return Task.CompletedTask;
         };
     }
 
@@ -135,6 +132,7 @@ public class Worker : IHostedService
     {
         try
         {
+            // TODO: wait for network start
             var response = await _mqttClient!.ConnectAsync(mqttClientOptions, ct);
 
             if (response.ResultCode != MqttClientConnectResultCode.Success)
