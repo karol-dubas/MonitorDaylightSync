@@ -8,14 +8,17 @@ public class Worker : IHostedService
 {
     private readonly ILogger<Worker> _logger;
     private readonly MqttClientConfiguration _mqttConfig;
+    private readonly MonitorConfiguration _monitorConfiguration;
     private IMqttClient? _mqttClient;
 
     public Worker(
         ILogger<Worker> logger,
-        MqttClientConfiguration mqttConfig)
+        MqttClientConfiguration mqttConfig,
+        MonitorConfiguration monitorConfiguration)
     {
         _logger = logger;
         _mqttConfig = mqttConfig;
+        _monitorConfiguration = monitorConfiguration;
     }
 
     public async Task StartAsync(CancellationToken ct)
@@ -67,15 +70,25 @@ public class Worker : IHostedService
         {
             try
             {
-                // TODO: change json payload to % values, for all lights/screens same used
-                // brightness and color in payload
-                // contrast is calculated here
-                
                 string json = e.ApplicationMessage.ConvertPayloadToString();
-                string[] commands = JsonSerializer.Generic.Utf16.Deserialize<string[]>(json);
-                _logger.LogDebug("Received message: {Message}", string.Join(", ", commands));
+                var payload = JsonSerializer.Generic.Utf16.Deserialize<MqttPayload>(json);
+                _logger.LogDebug("Received message: {@Payload}", payload);
 
-                _logger.LogDebug("Executing commands...");
+                // contrast is calculated here
+                // brightness and color in payload
+
+                // TODO: refactor this: SRP, OCP
+                var commands = new List<string>();
+                const short brightnessCode = 10;
+                const short contrastCode = 12;
+                foreach (var monitor in _monitorConfiguration.Monitors)
+                {
+                    commands.Add($"/SetValueIfNeeded {monitor.Name} {brightnessCode} {ConvertPercentToConfiguredMonitorRange(monitor.Brightness.Min, monitor.Brightness.Max, payload.Brightness)}");
+                    commands.Add($"/SetValueIfNeeded {monitor.Name} {contrastCode} {ConvertPercentToConfiguredMonitorRange(monitor.Contrast.Min, monitor.Contrast.Max, payload.Brightness)}");
+                    // TODO: add color
+                }
+                
+                _logger.LogDebug("Executing commands: {@Commands}", commands);
                 NativeMethods.LaunchProcess($"ControlMyMonitor {string.Join(" ", commands)}");
             }
             catch (Exception ex)
@@ -85,6 +98,14 @@ public class Worker : IHostedService
 
             return Task.CompletedTask;
         };
+    }
+
+    private static int ConvertPercentToConfiguredMonitorRange(int min, int max, int percent)
+    {
+        int range = max - min;
+        double multiplied = range * (percent / 100d);
+        int rounded = (int)Math.Round(multiplied);
+        return min + rounded;
     }
 
     private void StartReconnectLoop(
