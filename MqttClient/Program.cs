@@ -1,4 +1,5 @@
 using MqttClient;
+using MqttClient.Configuration;
 using Serilog;
 using Serilog.Debugging;
 
@@ -12,13 +13,8 @@ hostBuilder.UseSerilog((context, config) => config
 
 hostBuilder.ConfigureServices((context, services) =>
 {
-   var mqttConfig = new MqttClientConfiguration();
-   context.Configuration.GetSection("MqttClient").Bind(mqttConfig);
-   services.AddSingleton(mqttConfig);
-
-   var monitorConfiguration = new MonitorConfiguration();
-   context.Configuration.GetSection("Monitors").Bind(monitorConfiguration);
-   services.AddSingleton(monitorConfiguration);
+   services.Configure<MqttClientConfiguration>(o => context.Configuration.GetSection("MqttClient").Bind(o));
+   services.Configure<MonitorConfiguration>(o => context.Configuration.GetSection("Monitors").Bind(o));
 
    services.AddHostedService<Worker>();
    services.AddWindowsService(options => options.ServiceName = nameof(MqttClient));

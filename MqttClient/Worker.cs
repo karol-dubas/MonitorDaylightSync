@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using MqttClient.Configuration;
 using MQTTnet;
 using MQTTnet.Client;
 using SpanJson;
@@ -13,12 +15,12 @@ public class Worker : IHostedService
 
     public Worker(
         ILogger<Worker> logger,
-        MqttClientConfiguration mqttConfig,
-        MonitorConfiguration monitorConfiguration)
+        IOptions<MqttClientConfiguration> mqttConfig,
+        IOptions<MonitorConfiguration> monitorConfiguration)
     {
         _logger = logger;
-        _mqttConfig = mqttConfig;
-        _monitorConfiguration = monitorConfiguration;
+        _mqttConfig = mqttConfig.Value;
+        _monitorConfiguration = monitorConfiguration.Value;
     }
 
     public async Task StartAsync(CancellationToken ct)

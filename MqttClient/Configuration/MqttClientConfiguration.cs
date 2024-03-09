@@ -1,4 +1,4 @@
-﻿namespace MqttClient;
+﻿namespace MqttClient.Configuration;
 
 public class MqttClientConfiguration
 {
