@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 // https://social.msdn.microsoft.com/Forums/vstudio/en-US/990e7c4a-afa7-47aa-b9a6-d5b6beb19f41/call-a-program-via-windows-service?forum=csharpgeneral
 
-namespace MqttClient;
+namespace MonitorDaylightSync;
 
 class NativeMethods
 {

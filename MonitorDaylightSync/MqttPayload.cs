@@ -1,6 +1,6 @@
 ﻿using System.Runtime.Serialization;
 
-namespace MqttClient;
+namespace MonitorDaylightSync;
 
 public class MqttPayload
 {

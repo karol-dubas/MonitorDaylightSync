@@ -1,10 +1,10 @@
 ﻿using Microsoft.Extensions.Options;
-using MqttClient.Configuration;
+using MonitorDaylightSync.Configuration;
 using MQTTnet;
 using MQTTnet.Client;
 using SpanJson;
 
-namespace MqttClient;
+namespace MonitorDaylightSync;
 
 public class MqttClient
 {

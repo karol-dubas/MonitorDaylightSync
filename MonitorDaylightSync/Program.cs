@@ -1,5 +1,5 @@
-using MqttClient;
-using MqttClient.Configuration;
+using MonitorDaylightSync;
+using MonitorDaylightSync.Configuration;
 using Serilog;
 using Serilog.Debugging;
 
@@ -16,10 +16,10 @@ hostBuilder.ConfigureServices((context, services) =>
    services.Configure<MqttClientConfiguration>(o => context.Configuration.GetSection("MqttClient").Bind(o));
    services.Configure<MonitorConfiguration>(o => context.Configuration.GetSection("Monitors").Bind(o));
 
-   services.AddSingleton<MqttClient.MqttClient>();
+   services.AddSingleton<MonitorDaylightSync.MqttClient>();
    services.AddHostedService<Worker>();
    
-   services.AddWindowsService(options => options.ServiceName = nameof(MqttClient));
+   services.AddWindowsService(options => options.ServiceName = nameof(MonitorDaylightSync));
 });
 
 var app = hostBuilder.Build();

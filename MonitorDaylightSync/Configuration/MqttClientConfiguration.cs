@@ -1,4 +1,4 @@
-﻿namespace MqttClient.Configuration;
+﻿namespace MonitorDaylightSync.Configuration;
 
 public class MqttClientConfiguration
 {

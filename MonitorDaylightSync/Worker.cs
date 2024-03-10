@@ -1,4 +1,4 @@
-namespace MqttClient;
+namespace MonitorDaylightSync;
 
 public class Worker : IHostedService
 {

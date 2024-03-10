@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MqttClient", "MqttClient\MqttClient.csproj", "{9ED2E4AF-8858-4D43-8E76-1FFCFF986790}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MonitorDaylightSync", "MonitorDaylightSync\MonitorDaylightSync.csproj", "{9ED2E4AF-8858-4D43-8E76-1FFCFF986790}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
