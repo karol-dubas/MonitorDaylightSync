@@ -16,7 +16,9 @@ hostBuilder.ConfigureServices((context, services) =>
    services.Configure<MqttClientConfiguration>(o => context.Configuration.GetSection("MqttClient").Bind(o));
    services.Configure<MonitorConfiguration>(o => context.Configuration.GetSection("Monitors").Bind(o));
 
+   services.AddSingleton<MqttClient.MqttClient>();
    services.AddHostedService<Worker>();
+   
    services.AddWindowsService(options => options.ServiceName = nameof(MqttClient));
 });
 

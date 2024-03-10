@@ -14,12 +14,14 @@ public class Monitor
 
 public class Brightness
 {
+    public short CmmCode { get; set; }
     public int Min { get; set; }
     public int Max { get; set; }
 }
 
 public class Contrast
 {
+    public short CmmCode { get; set; }
     public int Min { get; set; }
     public int Max { get; set; }
 }
