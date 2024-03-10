@@ -2,7 +2,7 @@
 
 namespace MonitorDaylightSync;
 
-public class MqttPayload
+public class MonitorCommandData
 {
     [DataMember(Name="brightness")]
     public int Brightness { get; set; }

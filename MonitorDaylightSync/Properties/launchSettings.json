@@ -1,6 +1,6 @@
 ﻿{
   "profiles": {
-    "MqttClient": {
+    "MonitorDaylightSync": {
       "commandName": "Project",
       "dotnetRunMessages": true,
       "environmentVariables": {

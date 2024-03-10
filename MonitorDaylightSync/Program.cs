@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using MonitorDaylightSync;
 using MonitorDaylightSync.Configuration;
 using Serilog;
@@ -15,9 +16,9 @@ hostBuilder.ConfigureServices((context, services) =>
 {
    services.Configure<MqttClientConfiguration>(o => context.Configuration.GetSection("MqttClient").Bind(o));
    services.Configure<MonitorConfiguration>(o => context.Configuration.GetSection("Monitors").Bind(o));
-
-   services.AddSingleton<MonitorDaylightSync.MqttClient>();
-   services.AddHostedService<Worker>();
+   
+   services.AddHostedService<MqttClient>();
+   services.AddSingleton<CmmCommandExecutor>();
    
    services.AddWindowsService(options => options.ServiceName = nameof(MonitorDaylightSync));
 });
@@ -39,5 +40,4 @@ finally
 {
    logger?.LogInformation("Stopping app...");
    Log.CloseAndFlush();
-   // TODO: Env.Exit?
 }
