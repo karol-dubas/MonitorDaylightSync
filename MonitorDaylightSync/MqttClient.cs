@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using MonitorDaylightSync.Configuration;
 using MQTTnet;
 using MQTTnet.Client;
+using MQTTnet.Exceptions;
 using SpanJson;
 
 namespace MonitorDaylightSync;
@@ -137,6 +138,11 @@ public class MqttClient : IHostedService
         catch (TaskCanceledException)
         {
             _logger.LogInformation("Service cancelled");
+            return;
+        }
+        catch (MqttCommunicationTimedOutException ex)
+        {
+            _logger.LogError($"Error while connecting. {ex.Message}");
             return;
         }
         catch (Exception ex)

@@ -17,15 +17,15 @@ hostBuilder.ConfigureServices((context, services) =>
    services.Configure<MqttClientConfiguration>(o => context.Configuration.GetSection("MqttClient").Bind(o));
    services.Configure<MonitorConfiguration>(o => context.Configuration.GetSection("Monitors").Bind(o));
    
-   services.AddHostedService<MqttClient>();
+   //services.AddHostedService<MqttClient>(); // TODO: remove
    services.AddSingleton<CmmCommandExecutor>();
-   
-   services.AddWindowsService(options => options.ServiceName = nameof(MonitorDaylightSync));
 });
 
 var app = hostBuilder.Build();
 
 var logger = app.Services.GetService<ILogger<Program>>();
+
+app.Services.GetService<CmmCommandExecutor>(); // TODO: remove
 
 try
 {

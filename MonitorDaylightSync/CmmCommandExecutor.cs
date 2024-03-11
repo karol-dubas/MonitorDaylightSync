@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Options;
+﻿using System.Diagnostics;
+using Microsoft.Extensions.Options;
 using MonitorDaylightSync.Configuration;
 
 namespace MonitorDaylightSync;
@@ -14,11 +15,30 @@ public class CmmCommandExecutor
     {
         _monitorConfiguration = monitorConfiguration.Value;
         _logger = logger;
+        
+        test(); // TODO: remove
     }
 
-    public void Execute(MonitorCommandData data)
+    void test()
+    {
+        Task.Run(async () =>
+        {
+            while (true)
+            {
+                await Execute(new MonitorCommandData
+                {
+                    Brightness = Random.Shared.Next(30, 80)
+                });
+                
+                await Task.Delay(2000);
+            }
+        });
+    }
+
+    public async Task Execute(MonitorCommandData data)
     {
         var commands = new List<string>();
+        
         foreach (var monitor in _monitorConfiguration.Monitors)
         {
             commands.Add($"/SetValueIfNeeded " +
@@ -34,9 +54,35 @@ public class CmmCommandExecutor
             
             // TODO: add color
         }
-                
-        _logger.LogDebug("Executing commands: {@Commands}", commands);
-        NativeMethods.LaunchProcess($"ControlMyMonitor {string.Join(" ", commands)}");
+
+        string joinedCommands = string.Join(" ", commands);
+        
+        _logger.LogInformation("Executing command: ControlMyMonitor {JoinedCommands}", joinedCommands);// TODO: to debug
+        
+        try
+        {
+            var processStartInfo = new ProcessStartInfo
+            {
+                FileName = "ControlMyMonitor",
+                Arguments = joinedCommands,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            
+            var stopwatch = new Stopwatch(); // TODO: remove
+            stopwatch.Start();
+            
+            using var process = Process.Start(processStartInfo);
+            await process.WaitForExitAsync();
+            
+            stopwatch.Stop();
+            _logger.LogInformation("Command executed in {ElapsedMilliseconds}ms", stopwatch.ElapsedMilliseconds);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Error while executing commands");
+        }
     }
     
     private static int PercentToMonitorValue(int min, int max, int percent)
