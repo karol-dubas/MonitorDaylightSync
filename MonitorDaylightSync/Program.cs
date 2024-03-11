@@ -4,6 +4,12 @@ using MonitorDaylightSync.Configuration;
 using Serilog;
 using Serilog.Debugging;
 
+// The application could have been compiled as WinExe,
+// but then the "Working In Background" cursor shows up during command execution.
+// This is why it's compiled as ConsoleApp (exe) and the console is hidden.
+if (Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") != "Development")
+   ConsoleHelper.FreeConsole();
+
 var hostBuilder = Host.CreateDefaultBuilder(args);
 
 // Write Serilog error config to console

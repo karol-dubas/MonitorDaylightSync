@@ -23,11 +23,13 @@ public class CmmCommandExecutor
     {
         Task.Run(async () =>
         {
+            await Task.Delay(100);
+
             while (true)
             {
                 await Execute(new MonitorCommandData
                 {
-                    Brightness = Random.Shared.Next(30, 80)
+                    Brightness = Random.Shared.Next(5, 20)
                 });
                 
                 await Task.Delay(2000);
