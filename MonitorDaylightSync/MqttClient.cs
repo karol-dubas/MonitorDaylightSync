@@ -64,7 +64,7 @@ public class MqttClient : IHostedService
 
     private void AddMessageReceivedHandler()
     {
-        _mqttClient!.ApplicationMessageReceivedAsync += e =>
+        _mqttClient!.ApplicationMessageReceivedAsync += async e =>
         {
             try
             {
@@ -72,14 +72,12 @@ public class MqttClient : IHostedService
                 var monitorData = JsonSerializer.Generic.Utf16.Deserialize<MonitorCommandData>(receivedPayloadAsJson);
                 _logger.LogDebug("Received message: {@MonitorData}", monitorData);
 
-                _cmmCommandExecutor.Execute(monitorData);
+                await _cmmCommandExecutor.ExecuteAsync(monitorData);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error while processing message");
             }
-
-            return Task.CompletedTask;
         };
     }
 

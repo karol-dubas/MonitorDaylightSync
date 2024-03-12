@@ -27,7 +27,7 @@ public class CmmCommandExecutor
 
             while (true)
             {
-                await Execute(new MonitorCommandData
+                await ExecuteAsync(new MonitorCommandData
                 {
                     Brightness = Random.Shared.Next(5, 20)
                 });
@@ -37,7 +37,7 @@ public class CmmCommandExecutor
         });
     }
 
-    public async Task Execute(MonitorCommandData data)
+    public async Task ExecuteAsync(MonitorCommandData data)
     {
         var commands = new List<string>();
         
@@ -55,11 +55,12 @@ public class CmmCommandExecutor
                          $"{PercentToMonitorValue(monitor.Contrast.Min, monitor.Contrast.Max, data.Brightness)}");
             
             // TODO: add color
+            // https://tannerhelland.com/2012/09/18/convert-temperature-rgb-algorithm-code.html
         }
 
         string joinedCommands = string.Join(" ", commands);
         
-        _logger.LogInformation("Executing command: ControlMyMonitor {JoinedCommands}", joinedCommands);// TODO: to debug
+        _logger.LogInformation("Executing command: ControlMyMonitor {JoinedCommands}", joinedCommands); // TODO: to debug
         
         try
         {
