@@ -1,42 +1,45 @@
-using Microsoft.Extensions.Options;
-using MonitorDaylightSync;
 using MonitorDaylightSync.Configuration;
+using MonitorDaylightSync.Helpers;
+using MonitorDaylightSync.Services;
 using Serilog;
 using Serilog.Debugging;
 
-// The application could have been compiled as WinExe,
-// but then the "Working In Background" cursor shows up during command execution.
-// This is why it's compiled as ConsoleApp (exe) and the console is hidden.
-if (Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") != "Development")
-   ConsoleHelper.FreeConsole();
+var hostBuilder = Host.CreateApplicationBuilder(args);
 
-var hostBuilder = Host.CreateDefaultBuilder(args);
-
-// Write Serilog error config to console
-SelfLog.Enable(Console.Error);
-
-hostBuilder.UseSerilog((context, config) => config
-   .ReadFrom.Configuration(context.Configuration));
-
-hostBuilder.ConfigureServices((context, services) =>
+if (!hostBuilder.Environment.IsDevelopment())
 {
-   services.Configure<MqttClientConfiguration>(o => context.Configuration.GetSection("MqttClient").Bind(o));
-   services.Configure<MonitorConfiguration>(o => context.Configuration.GetSection("Monitors").Bind(o));
-   
-   //services.AddHostedService<MqttClient>(); // TODO: remove
-   services.AddSingleton<CmmCommandExecutor>();
-});
+   // The application could have been compiled as WinExe,
+   // but then the "Working In Background" cursor shows up during command execution.
+   // This is why it's compiled as ConsoleApp (exe) and the console is detached.
+   ConsoleHelper.FreeConsole();
+}
 
-var app = hostBuilder.Build();
+// Add services
+{
+   hostBuilder.Services.AddSerilog((sp, config) => config.ReadFrom.Configuration(hostBuilder.Configuration));
+   SelfLog.Enable(Console.Error); // Write Serilog invalid config to console
 
-var logger = app.Services.GetService<ILogger<Program>>();
+   hostBuilder.Services.Configure<MqttClientConfiguration>(o => hostBuilder.Configuration.GetSection("MqttClient").Bind(o));
+   hostBuilder.Services.Configure<MonitorConfiguration>(o => hostBuilder.Configuration.GetSection("Monitors").Bind(o));
 
-app.Services.GetService<CmmCommandExecutor>(); // TODO: remove
+   hostBuilder.Services.AddSingleton<CmmCommandExecutor>();
+
+   if (hostBuilder.Environment.IsDevelopment())
+      hostBuilder.Services.AddHostedService<TestCommandSender>();
+
+   var mqttConfig = hostBuilder.Configuration.GetSection("MqttClient").Get<MqttClientConfiguration>();
+   if (mqttConfig?.IsEnabled == true)
+       hostBuilder.Services.AddHostedService<MqttClient>();
+}
+
+var host = hostBuilder.Build();
+
+var logger = host.Services.GetService<ILogger<Program>>();
 
 try
 {
    logger?.LogInformation("Starting app...");
-   app.Run();
+   await host.RunAsync();
 }
 catch (Exception e)
 {

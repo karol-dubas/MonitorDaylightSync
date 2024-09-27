@@ -1,12 +1,13 @@
 ﻿using System.Net.NetworkInformation;
 using Microsoft.Extensions.Options;
 using MonitorDaylightSync.Configuration;
+using MonitorDaylightSync.Dtos;
 using MQTTnet;
 using MQTTnet.Client;
 using MQTTnet.Exceptions;
 using SpanJson;
 
-namespace MonitorDaylightSync;
+namespace MonitorDaylightSync.Services;
 
 public class MqttClient : IHostedService
 {
@@ -36,7 +37,7 @@ public class MqttClient : IHostedService
         while (!NetworkInterface.GetIsNetworkAvailable())
             await Task.Yield();
 
-        AddMessageReceivedHandler();
+        AddMessageReceivedHandler(ct);
         await StartConnectionLoop(ct);
     }
 
@@ -50,7 +51,7 @@ public class MqttClient : IHostedService
             _mqttClient!.Dispose();
             _logger.LogInformation("MQTT client disposed");
         }
-        catch (TaskCanceledException)
+        catch (OperationCanceledException)
         {
             _logger.LogInformation("Service cancelled");
         }
@@ -62,17 +63,17 @@ public class MqttClient : IHostedService
         _logger.LogInformation("Service stopped");
     }
 
-    private void AddMessageReceivedHandler()
+    private void AddMessageReceivedHandler(CancellationToken ct)
     {
         _mqttClient!.ApplicationMessageReceivedAsync += async e =>
         {
             try
             {
                 string receivedPayloadAsJson = e.ApplicationMessage.ConvertPayloadToString();
-                var monitorData = JsonSerializer.Generic.Utf16.Deserialize<MonitorCommandData>(receivedPayloadAsJson);
+                var monitorData = JsonSerializer.Generic.Utf16.Deserialize<MonitorCommandDto>(receivedPayloadAsJson);
                 _logger.LogDebug("Received message: {@MonitorData}", monitorData);
 
-                await _cmmCommandExecutor.ExecuteAsync(monitorData);
+                await _cmmCommandExecutor.ExecuteAsync(monitorData, ct);
             }
             catch (Exception ex)
             {
@@ -95,6 +96,7 @@ public class MqttClient : IHostedService
             _ = Task.Run(async () =>
             {
                 while (!ct.IsCancellationRequested)
+                {
                     try
                     {
                         if (await _mqttClient.TryPingAsync(ct))
@@ -115,9 +117,10 @@ public class MqttClient : IHostedService
                     {
                         await Task.Delay(TimeSpan.FromSeconds(_mqttConfig.ReconnectDelaySeconds), ct);
                     }
+                }
             }, ct);
         }
-        catch (TaskCanceledException)
+        catch (OperationCanceledException)
         {
             _logger.LogInformation("Service cancelled");
         }
@@ -133,7 +136,7 @@ public class MqttClient : IHostedService
         {
             response = await _mqttClient!.ConnectAsync(mqttClientOptions, ct);
         }
-        catch (TaskCanceledException)
+        catch (OperationCanceledException)
         {
             _logger.LogInformation("Service cancelled");
             return;
@@ -173,7 +176,7 @@ public class MqttClient : IHostedService
             _logger.LogInformation("Connected to a topic {Topic} with response: {@Response}",
                 _mqttConfig.Topic, response);
         }
-        catch (TaskCanceledException)
+        catch (OperationCanceledException)
         {
             _logger.LogInformation("Service cancelled");
         }

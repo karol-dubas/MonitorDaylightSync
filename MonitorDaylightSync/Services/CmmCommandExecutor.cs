@@ -1,8 +1,9 @@
 ﻿using System.Diagnostics;
 using Microsoft.Extensions.Options;
 using MonitorDaylightSync.Configuration;
+using MonitorDaylightSync.Dtos;
 
-namespace MonitorDaylightSync;
+namespace MonitorDaylightSync.Services;
 
 public class CmmCommandExecutor
 {
@@ -15,29 +16,9 @@ public class CmmCommandExecutor
     {
         _monitorConfiguration = monitorConfiguration.Value;
         _logger = logger;
-        
-        test(); // TODO: remove
     }
 
-    void test()
-    {
-        Task.Run(async () =>
-        {
-            await Task.Delay(100);
-
-            while (true)
-            {
-                await ExecuteAsync(new MonitorCommandData
-                {
-                    Brightness = Random.Shared.Next(5, 20)
-                });
-                
-                await Task.Delay(2000);
-            }
-        });
-    }
-
-    public async Task ExecuteAsync(MonitorCommandData data)
+    public async Task ExecuteAsync(MonitorCommandDto dto, CancellationToken ct)
     {
         var commands = new List<string>();
         
@@ -46,13 +27,13 @@ public class CmmCommandExecutor
             commands.Add($"/SetValueIfNeeded " +
                          $"{monitor.Name} " +
                          $"{monitor.Brightness.CmmCode} " +
-                         $"{PercentToMonitorValue(monitor.Brightness.Min, monitor.Brightness.Max, data.Brightness)}");
+                         $"{PercentToMonitorValue(monitor.Brightness.Min, monitor.Brightness.Max, dto.Brightness)}");
             
             // Contrast is calculated from brightness
             commands.Add($"/SetValueIfNeeded " +
                          $"{monitor.Name} " +
                          $"{monitor.Contrast.CmmCode} " +
-                         $"{PercentToMonitorValue(monitor.Contrast.Min, monitor.Contrast.Max, data.Brightness)}");
+                         $"{PercentToMonitorValue(monitor.Contrast.Min, monitor.Contrast.Max, dto.Brightness)}");
             
             // TODO: add color
             // https://tannerhelland.com/2012/09/18/convert-temperature-rgb-algorithm-code.html
@@ -60,7 +41,7 @@ public class CmmCommandExecutor
 
         string joinedCommands = string.Join(" ", commands);
         
-        _logger.LogInformation("Executing command: ControlMyMonitor {JoinedCommands}", joinedCommands); // TODO: to debug
+        _logger.LogDebug("Executing command: ControlMyMonitor {JoinedCommands}", joinedCommands);
         
         try
         {
@@ -77,10 +58,14 @@ public class CmmCommandExecutor
             stopwatch.Start();
             
             using var process = Process.Start(processStartInfo);
-            await process.WaitForExitAsync();
+            await process.WaitForExitAsync(ct);
             
             stopwatch.Stop();
-            _logger.LogInformation("Command executed in {ElapsedMilliseconds}ms", stopwatch.ElapsedMilliseconds);
+            _logger.LogDebug("Command executed in {ElapsedMilliseconds}ms", stopwatch.ElapsedMilliseconds);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Task canceled");
         }
         catch (Exception e)
         {

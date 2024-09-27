@@ -1,8 +1,8 @@
 ﻿using System.Runtime.Serialization;
 
-namespace MonitorDaylightSync;
+namespace MonitorDaylightSync.Dtos;
 
-public class MonitorCommandData
+public class MonitorCommandDto
 {
     [DataMember(Name="brightness")]
     public int Brightness { get; set; }
