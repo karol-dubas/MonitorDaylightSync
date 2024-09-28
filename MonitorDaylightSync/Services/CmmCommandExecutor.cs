@@ -58,7 +58,9 @@ public class CmmCommandExecutor
             stopwatch.Start();
             
             using var process = Process.Start(processStartInfo);
-            await process.WaitForExitAsync(ct);
+            
+            if (process is not null)
+                await process.WaitForExitAsync(ct);
             
             stopwatch.Stop();
             _logger.LogDebug("Command executed in {ElapsedMilliseconds}ms", stopwatch.ElapsedMilliseconds);

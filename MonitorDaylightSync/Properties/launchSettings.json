@@ -1,13 +1,13 @@
 ﻿{
   "profiles": {
-    "MonitorDaylightSync-Development": {
+    "Development": {
       "commandName": "Project",
       "dotnetRunMessages": true,
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development"
       }
     },
-    "MonitorDaylightSync-Production": {
+    "Production": {
       "commandName": "Project",
       "dotnetRunMessages": true
     }

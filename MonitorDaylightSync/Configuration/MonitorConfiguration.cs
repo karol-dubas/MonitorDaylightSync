@@ -2,7 +2,7 @@
 
 public class MonitorConfiguration
 {
-    public List<Monitor> Monitors { get; set; }
+    public List<Monitor> Monitors { get; set; } = [];
 }
 
 public class Monitor
