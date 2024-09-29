@@ -1,7 +1,8 @@
 using System.Collections;
+using MonitorDaylightSync.BackgroundWorkers;
+using MonitorDaylightSync.CommandExecutors;
 using MonitorDaylightSync.Configuration;
 using MonitorDaylightSync.Helpers;
-using MonitorDaylightSync.Services;
 using Serilog;
 using Serilog.Debugging;
 
@@ -26,7 +27,7 @@ var mqttClientConfigSection = hostBuilder.Configuration.GetRequiredSection("Mqtt
 hostBuilder.Services.Configure<MqttClientConfiguration>(o => mqttClientConfigSection.Bind(o));
 hostBuilder.Services.Configure<MonitorConfiguration>(o => hostBuilder.Configuration.GetRequiredSection("Monitors").Bind(o));
 
-hostBuilder.Services.AddSingleton<CmmCommandExecutor>();
+hostBuilder.Services.AddSingleton<ICommandExecutor, CmmCommandExecutor>();
 
 if (hostBuilder.Environment.IsDevelopment())
    hostBuilder.Services.AddHostedService<TestCommandSender>();

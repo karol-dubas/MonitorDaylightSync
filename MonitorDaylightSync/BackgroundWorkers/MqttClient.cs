@@ -1,5 +1,6 @@
 ﻿using System.Net.NetworkInformation;
 using Microsoft.Extensions.Options;
+using MonitorDaylightSync.CommandExecutors;
 using MonitorDaylightSync.Configuration;
 using MonitorDaylightSync.Dtos;
 using MQTTnet;
@@ -7,13 +8,13 @@ using MQTTnet.Client;
 using MQTTnet.Exceptions;
 using SpanJson;
 
-namespace MonitorDaylightSync.Services;
+namespace MonitorDaylightSync.BackgroundWorkers;
 
 public class MqttClient : IHostedService
 {
     private readonly ILogger<MqttClient> _logger;
     private readonly MqttClientConfiguration _mqttConfig;
-    private readonly CmmCommandExecutor _cmmCommandExecutor;
+    private readonly ICommandExecutor _commandExecutor;
 
     private readonly MqttFactory _mqttFactory = new();
     private IMqttClient? _mqttClient;
@@ -21,10 +22,10 @@ public class MqttClient : IHostedService
     public MqttClient(
         IOptions<MqttClientConfiguration> mqttConfig,
         ILogger<MqttClient> logger,
-        CmmCommandExecutor cmmCommandExecutor)
+        ICommandExecutor commandExecutor)
     {
         _logger = logger;
-        _cmmCommandExecutor = cmmCommandExecutor;
+        _commandExecutor = commandExecutor;
         _mqttConfig = mqttConfig.Value;
     }
 
@@ -73,7 +74,7 @@ public class MqttClient : IHostedService
                 var monitorData = JsonSerializer.Generic.Utf16.Deserialize<MonitorCommandDto>(receivedPayloadAsJson);
                 _logger.LogDebug("Received message: {@MonitorData}", monitorData);
 
-                await _cmmCommandExecutor.ExecuteAsync(monitorData, ct);
+                await _commandExecutor.ExecuteAsync(monitorData, ct);
             }
             catch (Exception ex)
             {

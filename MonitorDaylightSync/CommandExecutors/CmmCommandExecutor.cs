@@ -3,9 +3,9 @@ using Microsoft.Extensions.Options;
 using MonitorDaylightSync.Configuration;
 using MonitorDaylightSync.Dtos;
 
-namespace MonitorDaylightSync.Services;
+namespace MonitorDaylightSync.CommandExecutors;
 
-public class CmmCommandExecutor
+public class CmmCommandExecutor : ICommandExecutor
 {
     private readonly MonitorConfiguration _monitorConfiguration;
     private readonly ILogger<CmmCommandExecutor> _logger;
@@ -50,12 +50,12 @@ public class CmmCommandExecutor
                 FileName = "ControlMyMonitor",
                 Arguments = joinedCommands,
                 CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
+                UseShellExecute = false,
+                RedirectStandardOutput = false,
+                RedirectStandardError = false
             };
             
-            var stopwatch = new Stopwatch(); // TODO: remove
-            stopwatch.Start();
+            var stopwatch = Stopwatch.StartNew(); // TODO: remove
             
             using var process = Process.Start(processStartInfo);
             
